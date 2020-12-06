@@ -80,33 +80,86 @@ void compileStudentsPrograms(char* studentsPath){
 
     if (dr == NULL)  // opendir returns NULL if couldn't open directory
     {
-        printf("Could not open current directory" );
+        printf("Could not open current directory");
         exit(1);
     }
+
+
+        while ((de = readdir(dr)) != NULL) {
+            if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0) {
+                //TODO move to different function and dont forget to free memmory
+                char *userProgram = (char *) calloc(
+                        calcArraySize(studentsPath) + (2 * calcArraySize(de->d_name)) + 5,
+                        sizeof(char));
+
+                strcpy(userProgram, studentsPath);
+                strcat(userProgram, "/");
+                strcat(userProgram, de->d_name);
+                strcat(userProgram, "/");
+
+                char *programOutPath = calloc(calcArraySize(studentsPath) + calcArraySize(de->d_name) + 11,
+                                              sizeof(char));
+                strcpy(programOutPath, userProgram);
+
+                strcat(userProgram, de->d_name);
+                strcat(userProgram, ".c");
+                strcat(programOutPath, "main.out");
+
+                printf("%s\n", de->d_name);
+
+                execlp("gcc", "gcc", userProgram, "-o", programOutPath, fork());
+
+            }
+    }
+
+    closedir(dr);
+}
+
+void runStudentsPrograms(char* studentsPath, char* input, char* expectedOut){
+    struct dirent *de;
+//    int studentsPathSize = calcArraySize(studentsPath);
+    DIR *dr = opendir(studentsPath);
+    int pid, status;
+    int newfd; /* new file descriptor */
+    int screen_fd; //temp location to hold keyboard address
+
+    if (dr == NULL)  // opendir returns NULL if couldn't open directory
+    {
+        printf("Could not open current directory");
+        exit(1);
+    }
+
+
     while ((de = readdir(dr)) != NULL) {
         if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0) {
-            //TODO move to different function and dont forget to free memmory
-            char * userProgram = (char *) calloc(calcArraySize(studentsPath) + (2*calcArraySize(de->d_name)) + 5, sizeof(char));
+
+            char *userProgram = (char *) calloc(
+                    calcArraySize(studentsPath) + (2 * calcArraySize(de->d_name)) + 5,
+                    sizeof(char));
 
             strcpy(userProgram, studentsPath);
             strcat(userProgram, "/");
             strcat(userProgram, de->d_name);
             strcat(userProgram, "/");
 
-            char * programOutPath = calloc(calcArraySize(studentsPath) + calcArraySize(de->d_name) + 11,sizeof(char));
-            strcpy(programOutPath,userProgram);
+            char *programOutPath = calloc(calcArraySize(studentsPath) + calcArraySize(de->d_name) + 11,
+                                          sizeof(char));
+            strcpy(programOutPath, userProgram);
 
             strcat(userProgram, de->d_name);
             strcat(userProgram, ".c");
             strcat(programOutPath, "main.out");
 
-            execlp("gcc", "gcc", userProgram, "-o", programOutPath, NULL);
+            printf("%s\n", de->d_name);
+
+            execlp(programOutPath, " ", fork());
+
         }
     }
-        //        printf("%s\n", de->d_name);
 
     closedir(dr);
 }
+
 
 
 int main(int argc,char** argv){
@@ -115,12 +168,13 @@ int main(int argc,char** argv){
         exit(1);
     }
     char * configFile = argv[1];
-
     char** paths =  readConfigFile(configFile);
     char* studentsDir = paths[0];
-    char* expectedOutPut = paths[1];
-    char* testInput = paths[2];
+    char* testInput = paths[1];
+    char* expectedOutPut = paths[2];
+
     compileStudentsPrograms(studentsDir);
+//     runStudentsPrograms(studentsDir, testInput, expectedOutPut);
 
     free(studentsDir);
     free(expectedOutPut);
