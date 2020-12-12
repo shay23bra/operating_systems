@@ -108,17 +108,16 @@ void compileStudentsPrograms(char *studentsPath, char* testInput, char* expected
     pid_t parent;
     int Pstatus = 0;
     while ((de = readdir(dr)) != NULL) {
-        if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0) {
+        if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0 && strcmp(de->d_name, "grades.csv") != 0) {
             //TODO move to different function and dont forget to free memmory
             char *userProgram = getuserProgram(studentsPath, de);
             char studentDir[200];
             strcpy(studentDir, userProgram);
-//            printf("%s\n",shai);
             char *programOutPath = getOutPath(studentsPath, userProgram, de);
 
             pid_t sonProcess;
             if ((sonProcess = fork()) == 0) {
-
+//                    printf("s1\n");
                 execlp("gcc", "gcc", userProgram, "-o", programOutPath, NULL);
             } else {
 
@@ -129,14 +128,12 @@ void compileStudentsPrograms(char *studentsPath, char* testInput, char* expected
 
                 strcat(exeFile, "main.out");
                 strcat(output, "programOutput");
-//                    printf("%s\n",exeFile);
-//                    printf("%s\n",output);
                 int fdInput = open(testInput, O_RDONLY);
                 int fdOutPut = open(output, O_WRONLY | O_CREAT);
                 int saveoutput = dup(1);
                 int saveinput = dup(0);
 
-                if (wait(&Pstatus) > 0) {
+//                if (wait(&Pstatus) > 0) {
 
 //                    printf("%d\n", getpid());
 
@@ -152,9 +149,52 @@ void compileStudentsPrograms(char *studentsPath, char* testInput, char* expected
                         execlp(exeFile, exeFile, NULL);
                     }
 
-                    dup2(saveoutput, 1);
-                    dup2(saveinput, 0);
-                }
+
+                    else {
+                        dup2(saveoutput, 1);
+                        dup2(saveinput, 0);
+//                    }
+
+//                        if (wait(&Pstatus) > 0) {
+                        pid_t s3;
+                        int p3status = 0;
+                        pid_t testStatus;
+
+                        if ((s3 = fork()) == 0) {
+//                                printf("s3\n");
+//                                    printf("Output: %s\n",output);
+//                                    printf("Expected: %s\n",expectedOutput);
+                            execlp("./comp.out", output, expectedOutput, NULL);
+                        }
+//                                                        if (wait(&p3status) > 0) {
+                        testStatus = waitpid(s3, &p3status, 0);
+                        if (WIFSIGNALED(p3status)) {
+                            printf("Error\n");
+                        }
+                        if(testStatus == -1){
+                            perror("error calling waitpid()\n");
+                            exit(1);
+                        }
+                        else if (testStatus == s3) {
+
+                            if (WIFEXITED(p3status)) {
+                                if (WEXITSTATUS(p3status)) {
+                                    printf("p3status: %d\n", p3status);
+
+                                    if ((p3status / 256) == 2) {
+
+                                        printf("%s score: 100\n", de->d_name);
+
+                                    } else if ((p3status / 256) == 1) {
+                                        printf("%s score: 0\n", de->d_name);
+                                    } else
+                                        printf("%s %d\n", de->d_name, p3status);
+
+                                }
+                            }
+                        }
+                    }
+//                }
 
             }
         }
@@ -162,7 +202,6 @@ void compileStudentsPrograms(char *studentsPath, char* testInput, char* expected
     }
 
     while ((parent = wait(&Pstatus)) > 0);
-//    printf("IM FATHER AND IM DONE\n");
     closedir(dr);
 }
 
@@ -172,14 +211,29 @@ int main(int argc, char **argv) {
         printf("Not Given Config file\n");
         exit(1);
     }
+
+
     char *configFile = argv[1];
     char **paths = readConfigFile(configFile);
     char *studentsDir = paths[0];
     char *testInput = paths[1];
     char *expectedOutPut = paths[2];
 
+    pid_t parentPro1;
+    int P1status = 0;
+    pid_t sonPro1;
+    if ((sonPro1 = fork()) == 0) {
+        execlp("gcc","gcc" ,"comp.c", "-o", "comp.out", NULL);
+    }
+    while ((parentPro1 = wait(&P1status)) > 0);
+
+    char* Grades[300];
+    strcpy(Grades, studentsDir);
+    strcat(Grades, "/grades.csv");
+
+    int fdScores = open(Grades, O_RDWR | O_CREAT );
+
     compileStudentsPrograms(studentsDir,testInput,expectedOutPut);
-//    runStudentsPrograms(studentsDir, testInput, expectedOutPut);
 
     free(studentsDir);
     free(expectedOutPut);
