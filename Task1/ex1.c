@@ -173,11 +173,11 @@ void compileStudentsPrograms(char *studentsPath, char* testInput, char* expected
                     }
 
 
-                    int fdResult = open("./results.csv", O_WRONLY | O_CREAT , 0777);
+                    int fdResult = open("./results.csv", O_WRONLY/* | O_CREAT*/ , 0777);
                     if (fdResult == -1){
                         printf("error: can't open file descriptor results\n");
                         exit(1);
-                        }
+                    }
                     if(dup2(fdResult, 1) == -1) {//dup2 returns -1 if couldn't duplicate fd
                         printf("dup results fail\n");
                         exit(1);
@@ -193,21 +193,21 @@ void compileStudentsPrograms(char *studentsPath, char* testInput, char* expected
                         printf("son3 fail\n");
                     }
 
-                     waitpid(son3, &p3status, 0);
+                    waitpid(son3, &p3status, 0);
                     if (WIFSIGNALED(p3status)) {
                         printf("Error\n");
                     }
 
-                            if (WEXITSTATUS(p3status)) {
-                                if ((p3status / 256) == 2) {
-                                    printf("%s : 100\n", de->d_name);
+                    if (WEXITSTATUS(p3status)) {
+                        if ((p3status / 256) == 2) {
+                            printf("%s : 100\n", de->d_name);
 
-                                } else if ((p3status / 256) == 1) {
-                                    printf("%s : 0\n", de->d_name);
-                                } else
-                                    printf("%s error\n", de->d_name);
+                        } else if ((p3status / 256) == 1) {
+                            printf("%s : 0\n", de->d_name);
+                        } else
+                            printf("%s error\n", de->d_name);
 
-                            }
+                    }
                     close(fdResult);
                 }
 
@@ -245,6 +245,12 @@ int main(int argc, char **argv) {
         execlp("gcc","gcc" ,"comp.c", "-o", "comp.out", NULL);
     }
     while ((parentPro1 = wait(&P1status)) > 0);
+
+    int fdResult = open("./results.csv", O_WRONLY | O_CREAT , 0777);
+    if (fdResult == -1){
+        printf("error: can't open file descriptor results\n");
+        exit(1);
+    }
 
     compileStudentsPrograms(studentsDir,testInput,expectedOutPut);
 
