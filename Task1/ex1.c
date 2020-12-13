@@ -21,10 +21,10 @@ char **readConfigFile(char *configFile) {
     int expectedOutPutSize = 1;
 
     int EnterCounter = 0;
-    int configFd = open(configFile, O_RDONLY); // open config fille for reading
+    int configFd = open(configFile, O_RDONLY); // open config file for reading
 
-    if (configFd == -1) {
-        printf("wasnt able to open file\n");
+    if (configFd == -1) { //open file descriptor returns -1 if couldn't open
+        printf("wasn't able to open file\n");
         exit(1);
     }
 
@@ -72,9 +72,7 @@ int calcArraySize(char *arr) {
 }
 
 char *getuserProgram(char *studentsPath, struct dirent *de) {
-    char *userProgram = (char *) calloc(
-            calcArraySize(studentsPath) + (2 * calcArraySize(de->d_name)) + 5,
-            sizeof(char));
+    char *userProgram = (char *) calloc(calcArraySize(studentsPath) + (2 * calcArraySize(de->d_name)) + 5, sizeof(char));
 
     strcpy(userProgram, studentsPath);
     strcat(userProgram, "/");
@@ -96,7 +94,8 @@ char *getOutPath(char *studentsPath, char *userProgram, struct dirent *de) {
 
 void compileStudentsPrograms(char *studentsPath, char* testInput, char* expectedOutput) {
     struct dirent *de;
-//    int studentsPathSize = calcArraySize(studentsPath);
+    int saveoutput = dup(1);
+    int saveinput = dup(0);
     DIR *dr = opendir(studentsPath);
 
     if (dr == NULL)  // opendir returns NULL if couldn't open directory
@@ -108,18 +107,21 @@ void compileStudentsPrograms(char *studentsPath, char* testInput, char* expected
     pid_t parent;
     int Pstatus = 0;
     while ((de = readdir(dr)) != NULL) {
-        if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0 && strcmp(de->d_name, "grades.csv") != 0) {
-            //TODO move to different function and dont forget to free memmory
+        if (strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0 ) {
             char *userProgram = getuserProgram(studentsPath, de);
             char studentDir[200];
             strcpy(studentDir, userProgram);
             char *programOutPath = getOutPath(studentsPath, userProgram, de);
 
-            pid_t sonProcess;
-            if ((sonProcess = fork()) == 0) {
-//                    printf("s1\n");
+            pid_t son1;
+            son1 = fork();
+            if (son1 == 0) {
                 execlp("gcc", "gcc", userProgram, "-o", programOutPath, NULL);
-            } else {
+            } else if(son1 < 0){
+                printf("s1 fail\n");
+                exit(1);
+            }
+            else {
 
                 char output[200];
                 char exeFile[200];
@@ -129,80 +131,97 @@ void compileStudentsPrograms(char *studentsPath, char* testInput, char* expected
                 strcat(exeFile, "main.out");
                 strcat(output, "programOutput");
                 int fdInput = open(testInput, O_RDONLY);
-                int fdOutPut = open(output, O_WRONLY | O_CREAT);
-                int saveoutput = dup(1);
-                int saveinput = dup(0);
+                if (fdInput == -1){ //open file descriptor returns -1 if couldn't open
+                    printf("error: can't open file descriptor input\n");
+                    exit(1);
+                }
+                int fdOutPut = open(output, O_WRONLY | O_CREAT , 0777);
+                if (fdOutPut == -1){ //open file descriptor returns -1 if couldn't open
+                    printf("error: can't open file descriptor output\n");
+                    exit(1);
+                }
 
-//                if (wait(&Pstatus) > 0) {
+                if(dup2(fdInput, 0) == -1) { //dup2 returns -1 if couldn't duplicate fd
+                    printf("dup input fail\n");
+                    exit(1);
+                }
+                if(dup2(fdOutPut, 1)==-1){ //dup2 returns -1 if couldn't duplicate fd
+                    printf("dup output fail\n");
+                    exit(1);
+                }
 
-//                    printf("%d\n", getpid());
+                pid_t son2;
+                son2 = fork();
+                if (son2 == 0) {
+                    execlp(exeFile, exeFile, NULL);
+                }
+                else if(son2 < 0){
+                    printf("son2 fail\n");
+                    exit(1);
+                }
 
-//                    if ((s2 = fork()) == 0) {
-//                        printf("%d\n",getpid());
-                    //                        char exeFile[200];
-//                    TODO check we managed to open t//he file discriptor exit if not.
-                    dup2(fdInput, 0);
-                    dup2(fdOutPut, 1);
-
-                    pid_t s2;
-                    if ((s2 = fork()) == 0) {
-                        execlp(exeFile, exeFile, NULL);
+                else {
+                    close(fdOutPut);
+                    close(fdInput);
+                    if(dup2(saveoutput, 1) == -1){//dup2 returns -1 if couldn't duplicate fd
+                        printf("dup screen fail\n");
+                        exit(1);
+                    }
+                    if(dup2(saveinput, 0) == -1){//dup2 returns -1 if couldn't duplicate fd
+                        printf("dup keyboard fail\n");
+                        exit(1);
                     }
 
 
-                    else {
-                        dup2(saveoutput, 1);
-                        dup2(saveinput, 0);
-//                    }
-
-//                        if (wait(&Pstatus) > 0) {
-                        pid_t s3;
-                        int p3status = 0;
-                        pid_t testStatus;
-
-                        if ((s3 = fork()) == 0) {
-//                                printf("s3\n");
-//                                    printf("Output: %s\n",output);
-//                                    printf("Expected: %s\n",expectedOutput);
-                            execlp("./comp.out", output, expectedOutput, NULL);
+                    int fdResult = open("./results.csv", O_WRONLY | O_CREAT , 0777);
+                    if (fdResult == -1){
+                        printf("error: can't open file descriptor results\n");
+                        exit(1);
                         }
-//                                                        if (wait(&p3status) > 0) {
-                        testStatus = waitpid(s3, &p3status, 0);
-                        if (WIFSIGNALED(p3status)) {
-                            printf("Error\n");
-                        }
-                        if(testStatus == -1){
-                            perror("error calling waitpid()\n");
-                            exit(1);
-                        }
-                        else if (testStatus == s3) {
+                    if(dup2(fdResult, 1) == -1) {//dup2 returns -1 if couldn't duplicate fd
+                        printf("dup results fail\n");
+                        exit(1);
+                    }
 
-                            if (WIFEXITED(p3status)) {
-                                if (WEXITSTATUS(p3status)) {
-                                    printf("p3status: %d\n", p3status);
+                    pid_t son3;
+                    int p3status = 0;
+                    son3 = fork();
+                    if (son3 == 0) {
+                        execlp("./comp.out","./comp.out", output, expectedOutput, NULL);
+                    }
+                    else if(son3 < 0){
+                        printf("son3 fail\n");
+                    }
 
-                                    if ((p3status / 256) == 2) {
+                     waitpid(son3, &p3status, 0);
+                    if (WIFSIGNALED(p3status)) {
+                        printf("Error\n");
+                    }
 
-                                        printf("%s score: 100\n", de->d_name);
+                            if (WEXITSTATUS(p3status)) {
+                                if ((p3status / 256) == 2) {
+                                    printf("%s : 100\n", de->d_name);
 
-                                    } else if ((p3status / 256) == 1) {
-                                        printf("%s score: 0\n", de->d_name);
-                                    } else
-                                        printf("%s %d\n", de->d_name, p3status);
+                                } else if ((p3status / 256) == 1) {
+                                    printf("%s : 0\n", de->d_name);
+                                } else
+                                    printf("%s error\n", de->d_name);
 
-                                }
                             }
-                        }
-                    }
-//                }
+                    close(fdResult);
+                }
 
             }
+            free(userProgram);
+            free(programOutPath);
         }
 
     }
 
     while ((parent = wait(&Pstatus)) > 0);
     closedir(dr);
+
+
 }
 
 
@@ -226,12 +245,6 @@ int main(int argc, char **argv) {
         execlp("gcc","gcc" ,"comp.c", "-o", "comp.out", NULL);
     }
     while ((parentPro1 = wait(&P1status)) > 0);
-
-    char* Grades[300];
-    strcpy(Grades, studentsDir);
-    strcat(Grades, "/grades.csv");
-
-    int fdScores = open(Grades, O_RDWR | O_CREAT );
 
     compileStudentsPrograms(studentsDir,testInput,expectedOutPut);
 
