@@ -6,10 +6,11 @@
 #include <stdlib.h>
 
 # define BUFF_SIZE 2
+// Shay Bratslavsky 313363541
+// Omer Tati 305168049
 
 int main(int argc,char** argv) {
     if (argc!=3){ // incase no 2 files given
-        printf("Not Given 2 parameters\n");
         exit(1);
     }
 
@@ -27,8 +28,6 @@ int main(int argc,char** argv) {
 
     // Make sure files can be open for reading
     if (firstFd == -1 || secondFd == -1){
-//        printf("%d,%d",firstFd,secondFd);
-        printf("wasn't able to open files\n");
         exit(1);
     }
 
@@ -38,8 +37,6 @@ int main(int argc,char** argv) {
 
     // while we are able to read we keep reading until end of file
     while(read1>0 && read2>0){
-//        printf("buf1: %s\n", buf1);
-//        printf("buf2: %s\n", buf2);
         if (buf1[0] != buf2[0]) // check if buffers read from files are the same
             exit(1);
         read1 = read(firstFd,buf1,BUFF_SIZE-1);
@@ -54,7 +51,6 @@ int main(int argc,char** argv) {
     free(buf2);
     close(firstFd);
     close(secondFd);
-    printf("FILES ARE THE SAME\n");
     exit(2);
     return 0;
 }
